@@ -1,0 +1,10 @@
+.idea
+.env
+.env.*
+!.env.example
+/data/
+/bin/
+/coverage.out
+
+docs
+README.md

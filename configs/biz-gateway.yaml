@@ -1,0 +1,41 @@
+# 工程骨架本地开发配置：仅启用文件配置、日志和业务健康检查。
+schema_version: 1
+server:
+  listen: ":8080"
+  shutdown_timeout: 30s
+  read_header_timeout: 10s
+  read_timeout: 30s
+  idle_timeout: 60s
+admin:
+  listen: ":9091"
+  instance_heartbeat_interval: 5s
+  instance_lease_ttl: 15s
+config:
+  source: file
+  endpoints: ["127.0.0.1:2379"]
+  key: /next-gateway/v1/runtime
+  snapshot_path: data/runtime-snapshot.yaml
+  connect_timeout: 5s
+log:
+  level: info
+  encoding: json
+  output: stdout
+request:
+  max_body_bytes: 1048576
+  upstream_timeout: 60s
+  first_chunk_timeout: 30s
+  stream_idle_timeout: 60s
+  stream_max_duration: 10m
+  stream_write_timeout: 30s
+  heartbeat_interval: 15s
+canary:
+  canary_basis_points: 0
+  force_stable_tenants: []
+  force_canary_tenants: []
+  allow_override_header: false
+ai:
+  default_upstream: mock
+  mock:
+    response_text: "Hello from Next Gateway Mock"
+    chunk_size: 8
+    chunk_delay: 20ms

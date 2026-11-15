@@ -1,0 +1,6 @@
+# 统一渲染两个角色，部署到 kubectl 当前上下文选择的 Namespace。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - biz-gateway.yaml
+  - ai-gateway.yaml

@@ -1,0 +1,124 @@
+# 业务网关演示配置只覆盖部署相关字段，其余配置继承应用内安全默认值。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: biz-gateway-config
+  labels:
+    app.kubernetes.io/name: biz-gateway
+    app.kubernetes.io/part-of: next-gateway
+data:
+  biz-gateway.yaml: |
+    server:
+      listen: ":8080"
+    log:
+      encoding: json
+      output: stdout
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: biz-gateway
+  labels:
+    app.kubernetes.io/name: biz-gateway
+    app.kubernetes.io/part-of: next-gateway
+spec:
+  # 单副本仅用于演示当前本地垂直切片，不代表 stable/canary 或生产高可用部署。
+  replicas: 1
+  # 新 Pod 就绪后再移除旧 Pod，避免单副本滚动更新主动造成业务空窗。
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: biz-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: biz-gateway
+        app.kubernetes.io/part-of: next-gateway
+    spec:
+      # 应用处理 SIGTERM；45 秒为默认 30 秒 Shutdown 和连接收尾保留余量。
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: biz-gateway
+          image: next-gateway-biz:dev
+          imagePullPolicy: IfNotPresent
+          args:
+            - serve
+            - --config
+            - /configs/biz-gateway.yaml
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # distroless 镜像不含 shell/curl，探针由 kubelet 直接发起 HTTP 请求。
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /configs
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: biz-gateway-config
+            items:
+              - key: biz-gateway.yaml
+                path: biz-gateway.yaml
+            defaultMode: 0444
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: biz-gateway
+  labels:
+    app.kubernetes.io/name: biz-gateway
+    app.kubernetes.io/part-of: next-gateway
+spec:
+  # 仅集群内暴露业务端口；管理端口尚未实现，也不创建公网入口。
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: biz-gateway
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http

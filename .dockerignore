@@ -1,0 +1,19 @@
+# 版本控制与编辑器文件
+.git/
+.idea/
+.claude/
+.DS_Store
+
+# 本地环境变量和密钥不得进入构建上下文
+.env
+.env.*
+!.env.example
+secrets/
+**/*.pem
+**/*.key
+
+# 本地产物、运行数据和测试输出
+bin/
+data/
+coverage.out
+*.test
